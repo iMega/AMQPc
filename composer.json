@@ -1,7 +1,7 @@
 {
-  "name": "imega/amqpc",
+  "name": "imega/codeception-amqpc",
   "description": "",
-  "keywords": ["rabbitmq", "amqp", "codeception", "module"],
+  "keywords": ["rabbitmq", "amqp", "amqpc", "codeception", "module"],
   "homepage": "https://github.com/iMega/AMQPc",
   "type": "library",
   "license": "MIT",
