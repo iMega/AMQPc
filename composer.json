@@ -1,0 +1,26 @@
+{
+  "name": "imega/amqpc",
+  "description": "",
+  "keywords": ["rabbitmq", "amqp", "codeception", "module"],
+  "homepage": "https://github.com/iMega/AMQPc",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Dmitry Gavriloff",
+      "email": "info@imega.ru",
+      "homepage": "http://imega.ru"
+    }
+  ],
+  "require": {
+    "php": ">=5.4.0",
+    "codeception/codeception": "^2.2",
+    "imega/rabbitmq-management-api": "^0.0.1"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^5.6"
+  },
+  "autoload": {
+    "psr-4": {"Codeception\\Module\\": "src"}
+  }
+}
