@@ -49,6 +49,11 @@ class AMQPc extends \Codeception\Module
      */
     protected $bindings = [];
 
+    /**
+     * @var array
+     */
+    protected $credentials = [];
+
     public function _initialize()
     {
         if (!class_exists('GuzzleHttp\Client')) {
@@ -66,20 +71,18 @@ class AMQPc extends \Codeception\Module
         $this->services = $this->config['services'];
         $this->bindings = $this->config['bindings'];
 
-        $credentials = [
+        $this->credentials = [
             'host'     => $this->config['host'],
             'port'     => $this->config['port'],
             'login'    => $this->config['login'],
             'password' => $this->config['password'],
             'vhost'    => $this->config['vhost'],
+            'read_timeout'    => isset($this->config['read_timeout']) ? $this->config['read_timeout'] : 0,
+            'write_timeout'   => isset($this->config['write_timeout']) ? $this->config['write_timeout'] : 0,
+            'connect_timeout' => isset($this->config['connect_timeout']) ? $this->config['connect_timeout'] : 1,
         ];
 
-        $this->connection = new \AMQPConnection($credentials);
-        try {
-            $this->connection->connect();
-        } catch (\AMQPConnectionException $e) {
-            throw new ModuleException(__CLASS__, $e->getMessage());
-        }
+        $this->connection = $this->getConnection();
     }
 
     public function _cleanup() {
@@ -113,6 +116,9 @@ class AMQPc extends \Codeception\Module
     public function _failed(\Codeception\TestCase $test, $fail) {
     }
 
+    /**
+     * @param string $exchange
+     */
     public function checkExistsExchange($exchange)
     {
         $result = $this->service->exchanges()->columns(['name']);
@@ -128,6 +134,9 @@ class AMQPc extends \Codeception\Module
         $this->assertContains($exchange, array_column($exchanges, 'name'));
     }
 
+    /**
+     * @param string $queue
+     */
     public function checkExistsConsumerQueue($queue)
     {
         $result = $this->service->consumers()->columns(['queue.name']);
@@ -176,6 +185,9 @@ class AMQPc extends \Codeception\Module
         $queue->consume($callback, AMQP_AUTOACK);
     }
 
+    /**
+     * @param string $name
+     */
     public function declareQueueService($name)
     {
         $queue = $this->bindQueue($name);
@@ -199,7 +211,7 @@ class AMQPc extends \Codeception\Module
         }, AMQP_AUTOACK);
     }
 
-    public function listeCastService($name, $callback)
+    public function listenCastService($name, $callback)
     {
         $exchange = $this->getExchange($name);
 
@@ -218,16 +230,37 @@ class AMQPc extends \Codeception\Module
      */
     protected function getConnection()
     {
-        if (null === $this->connection) {
-            try {
-                $this->connection = new \AMQPConnection($this->config);
-                $this->connection->connect();
-            } catch (\AMQPConnectionException $e) {
-                throw new ModuleException(__CLASS__, $e->getMessage());
-            }
+        if (null !== $this->connection) {
+            return $this->connection;
         }
 
-        return $this->connection;
+        /**
+         * @todo amqp_socket_open_noblock
+         *       timeout NOT WORK.
+         *       http://alanxz.github.io/rabbitmq-c/docs/0.8.0/amqp_8h.html
+         *       https://github.com/pdezwart/php-amqp/issues/97
+         */
+        $connection = new \AMQPConnection($this->credentials);
+        $attempts     = isset($this->config['attempts']) ? $this->config['attempts'] : 5;
+        $waitConnection = isset($this->config['wait_connection']) ? $this->config['wait_connection'] : 1;
+        $connection->setReadTimeout($this->credentials['read_timeout']);
+        $connection->setWriteTimeout($this->credentials['write_timeout']);
+        while (!$connection->isConnected() && $attempts > 0) {
+            try {
+                $connection->connect();
+            } catch (\AMQPConnectionException $e) {
+                Debug::debug(__CLASS__ . " Attempt#$attempts Connect fail.");
+                if (1 == $attempts) {
+                    Debug::debug($e->getMessage());
+                    throw new ModuleException(__CLASS__, $e->getMessage());
+                }
+                $attempts--;
+                usleep(floatval($waitConnection) * 1000000);
+            }
+        }
+        Debug::debug('AMQPc: connect is Ok.');
+
+        return $connection;
     }
 
     /**
@@ -296,13 +329,13 @@ class AMQPc extends \Codeception\Module
         $options = $this->services[$name];
 
         return [
-            'name'      => $options['name'],
-            'type'      => $options['type'],
-            'flags'     => isset($options['flags']) ? $options['flags'] : AMQP_NOPARAM,
-            'arguments' => !empty($options['arguments']) ? $options['arguments'] : [],
-            'declare'   => isset($options['declare']) && (true === $options['declare']),
-            'flagsMsg'  => isset($options['flagsMsg']) ? $options['flagsMsg'] : AMQP_NOPARAM,
-            'attributes' => !empty($options['attributes']) ? $options['attributes'] : [],
+            'name'        => $options['name'],
+            'type'        => $options['type'],
+            'flags'       => isset($options['flags']) ? $options['flags'] : AMQP_NOPARAM,
+            'arguments'   => !empty($options['arguments']) ? $options['arguments'] : [],
+            'declare'     => isset($options['declare']) && (true === $options['declare']),
+            'flagsMsg'    => isset($options['flagsMsg']) ? $options['flagsMsg'] : AMQP_NOPARAM,
+            'attributes'  => !empty($options['attributes']) ? $options['attributes'] : [],
             'routing_key' => isset($options['routing_key']) ? $options['routing_key'] : null,
         ];
     }
