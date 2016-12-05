@@ -30,6 +30,6 @@ test: composer build/containers/mock_rabbit_server
 	@docker run --rm \
 		--link mock_rabbit_server:rabbit_host \
 		-v $(CURDIR):/data \
-		imega/tester vendor/bin/phpunit --debug
+		imega/tester vendor/bin/phpunit
 
 .PHONY: build

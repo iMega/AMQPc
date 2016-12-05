@@ -16,7 +16,7 @@ class AMQPcTest extends \PHPUnit_Framework_TestCase
         'login'           => 'guest',
         'password'        => 'guest',
         'vhost'           => '/',
-        'read_timeout'    => 0,
+        'read_timeout'    => 10,
         'write_timeout'   => 10,
         'connect_timeout' => 1,
         'attempts'        => 5,
@@ -88,20 +88,6 @@ class AMQPcTest extends \PHPUnit_Framework_TestCase
         $this->module->checkExistsExchange(self::EXCHANGE);
 
         $this->rabman->exchanges(self::EXCHANGE)->vhost()->delete();
-    }
-
-    public function testCheckExistsConsumerQueue()
-    {
-        $this->module->declareQueueService('logger');
-        $this->module->listenService('logger', function($response) {
-
-        });
-
-        $this->module->checkExistsConsumerQueue('logger');
-        /*$items = $source->consumers()->vhost('second_virtual_host');
-        foreach ($items as $item) {
-            var_dump($item);
-        }*/
     }
 
     public function testDeclareQueueService()
